@@ -1,0 +1,134 @@
+version: '2.2'
+services:
+  apm-server:
+    container_name: apm-server
+    image: docker.elastic.co/apm/apm-server:7.10.2
+    volumes:
+      - "./apm-server.docker.yml:/usr/share/apm-server/apm-server.yml:ro"
+    ports:
+      - 8200:8200
+    networks:
+      - elastic
+    depends_on:
+      - kibana
+  heartbeat:
+    container_name: heartbeat
+    image: ubuntu:focal
+    restart: on-failure
+    command: ["sleep","infinity"]
+    volumes:
+      - ./beats:/opt
+    networks:
+      - elastic
+    depends_on:
+      - kibana
+  metricbeat:
+    container_name: metricbeat
+    image: ubuntu:focal
+    restart: on-failure
+    command: ["sleep","infinity"]
+    volumes:
+      - ./beats:/opt
+    networks:
+      - elastic
+    depends_on:
+      - kibana
+  filebeat:
+    container_name: filebeat
+    image: ubuntu:focal
+    restart: on-failure
+    command: ["sleep","infinity"]
+    volumes:
+      - ./beats:/opt
+    networks:
+      - elastic
+    depends_on:
+      - kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.10.2
+    container_name: kibana
+    environment:
+      SERVER_NAME: kibana
+      ELASTICSEARCH_HOSTS: http://es01:9200
+    ports:
+      - 5601:5601
+    networks:
+      - elastic
+    depends_on:
+      - es01
+      - es02
+      - es03
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data01:/usr/share/elasticsearch/data
+      - ./beats-es:/opt
+      - ./es-config/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data02:/usr/share/elasticsearch/data
+      - ./beats-es:/opt
+      - ./es-config/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties
+    networks:
+      - elastic
+  es03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: es03
+    environment:
+      - node.name=es03
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data03:/usr/share/elasticsearch/data
+      - ./beats-es:/opt
+      - ./es-config/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties
+    networks:
+      - elastic
+
+volumes:
+  data01:
+    driver: local
+  data02:
+    driver: local
+  data03:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge
